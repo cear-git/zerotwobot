@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.CommandsNext;
@@ -10,7 +11,7 @@ using DSharpPlus.Interactivity;
 namespace ZeroTwoBot
 {
     public class zeroTwoCommandsUngroupped
-    {
+    {       
         [Command("ping")] // let's define this method as a command
         [Description("Example ping command")] // this will be displayed to tell users what this command does when they invoke help
         [Aliases("pong")] // alternative names for the command
@@ -23,6 +24,92 @@ namespace ZeroTwoBot
 
             // respond with ping
             await ctx.RespondAsync($"{emoji} Pong! Ping: {ctx.Client.Ping}ms");
+        }
+
+        public static Dictionary<DiscordMember, int> winCount = new Dictionary<DiscordMember, int>();
+        [Command("rps"), Description("rps test")]
+        public async Task rpsTest(CommandContext ctx, [Description("ur choice")] string argOne)
+        {
+            await ctx.TriggerTypingAsync();
+            string[] responseArray = { "rock", "paper", "scissors", };
+
+
+            int rpsConvert(string converter) //convert their response to int for win/loss calc
+            {
+                int convertedInt = 0;
+                switch (converter)
+                {
+                    case "rock":
+                        convertedInt = 0;
+                        break;
+                    case "paper":
+                        convertedInt = 1;
+                        break;
+                    case "scissors":
+                        convertedInt = 2;
+                        break;
+                }
+                return convertedInt;
+            }
+
+
+            string rpsHandler(string userResponse) //main handler
+            {
+                //0->rock1->paper2->scissors
+                int responseInt = new Random().Next(0, 2); //make a random choice for bot
+                int userInt = rpsConvert(userResponse); //change their response to an int
+                bool userWin = false;
+                bool tie = false;
+                switch (userInt) //check their choice
+                {
+                    case 0: //user rock
+                        switch (responseInt) //check bot choice
+                        {
+                            case 0: //tie
+                                tie = true;
+                                break;
+                            case 1: //lose
+                                userWin = false;
+                                break;
+                            case 2: //win
+                                userWin = true;
+                                break;
+                        }
+                        break;
+                    case 1: //user paper
+                        switch (responseInt)
+                        {
+                            case 0: //win
+                                userWin = true;
+                                break;
+                            case 1:
+                                tie = true;
+                                break;
+                            case 2: //loss
+                                userWin = false;
+                                break;
+                        }
+                        break;
+                    case 2: //user scissors
+                        switch (responseInt)
+                        {
+                            case 0: //loss
+                                userWin = false;
+                                break;
+                            case 1: //win
+                                userWin = true;
+                                break;
+                            case 2: 
+                                tie = true;
+                                break;
+                        }
+                        break;
+                }
+                return tie ? "Tie." : userWin ? "You win." : "You lose."; ; //return the string
+            }
+
+            string response = responseArray.Any(x => argOne.ToLower().Contains(x)) ? rpsHandler(argOne) : "Please use a correct arg (scissors, rock, or paper)";
+            await ctx.RespondAsync(response);
         }
 
         [Command("greet"), Description("Says hi to specified user."), Aliases("sayhi", "say_hi")]
@@ -50,7 +137,7 @@ namespace ZeroTwoBot
 
         // math example command
         [Command("math"), Description("Does basic math.")]
-        public async Task Math(CommandContext ctx, [Description("Operation to perform on the operands.")] MathOperation operation, [Description("First operand.")] double num1, [Description("Second operand.")] double num2)
+        public async Task Math(CommandContext ctx, [Description("First operand.")] double num1, [Description("Operation to perform on the operands.")] MathOperation operation, [Description("Second operand.")] double num2)
         {
             var result = 0.0;
             switch (operation)

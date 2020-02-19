@@ -36,7 +36,7 @@ namespace ZeroTwoBot
         {
             //log event occuring
             e.Client.DebugLogger.LogMessage(LogLevel.Info, "Zero Two Bot", "Bot is ready", DateTime.Now);
-
+            
             //method is not async, so return not await so it doesnt try to do more work than needed
             return Task.CompletedTask;
             
@@ -113,6 +113,17 @@ namespace ZeroTwoBot
             }
         
         }       
+        
+        public async Task botStatusAsync(ReadyEventArgs e)
+        {
+            string[] statusArray = { "test", "test2", "test3" };
+            Random rand = new Random();
+                
+            DiscordGame game = new DiscordGame();    
+            game.Name = statusArray[rand.Next(0, 2)];
+            game.StreamType = GameStreamType.Twitch;
+            await this.bot.UpdateStatusAsync(game, UserStatus.Online);
+        }
 
         //main async task
         public async Task startBotAsync()
@@ -140,9 +151,11 @@ namespace ZeroTwoBot
           
             //hook events to the bot
             this.bot.Ready += this.botReady;
+            this.bot.Ready += this.botStatusAsync;
             this.bot.GuildAvailable += this.botGuildAvailable;
             //this.bot.GuildAvailable += this.botGuildAuditLog;
             this.bot.ClientErrored += this.botErrorHandler;
+            
 
 
             //command setup
@@ -177,7 +190,6 @@ namespace ZeroTwoBot
 
             //connect and log in
             await this.bot.ConnectAsync();
-
 
             //when bot is running, <prefix>help will show command list, <prefix>help <command> will show help abbout the command
 
