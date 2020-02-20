@@ -9,13 +9,16 @@ using DSharpPlus.Interactivity;
 using DSharpPlus.Entities;
 using Newtonsoft.Json;
 using DSharpPlus.EventArgs;
+using DSharpPlus.VoiceNext;
 
 namespace ZeroTwoBot
 {
     public class Program
     {
-        public DiscordClient bot { get; set; }        
-        public CommandsNextModule Commands { get; set; }
+        public DiscordClient bot { get; set; }    
+        public CommandsNextExtension Commands { get; set; }
+        public VoiceNextExtension Voice { get; set; }
+
         public static Program instance = new Program();
         static void Main(string[] args)
         {
@@ -114,7 +117,7 @@ namespace ZeroTwoBot
         
         }       
         
-        public async Task botStatusAsync(ReadyEventArgs e)
+       /* public async Task botStatusAsync(ReadyEventArgs e)
         {
             string[] statusArray = { "test", "test2", "test3" };
             Random rand = new Random();
@@ -123,7 +126,7 @@ namespace ZeroTwoBot
             game.Name = statusArray[rand.Next(0, 2)];
             game.StreamType = GameStreamType.Twitch;
             await this.bot.UpdateStatusAsync(game, UserStatus.Online);
-        }
+        }*/
 
         //main async task
         public async Task startBotAsync()
@@ -142,7 +145,7 @@ namespace ZeroTwoBot
                 TokenType = TokenType.Bot,
 
                 AutoReconnect = true,
-                LogLevel = LogLevel.Debug,
+                LogLevel = LogLevel.Info,
                 UseInternalLogHandler = true
             };
 
@@ -151,9 +154,8 @@ namespace ZeroTwoBot
           
             //hook events to the bot
             this.bot.Ready += this.botReady;
-            this.bot.Ready += this.botStatusAsync;
+            //this.bot.Ready += this.botStatusAsync;
             this.bot.GuildAvailable += this.botGuildAvailable;
-            //this.bot.GuildAvailable += this.botGuildAuditLog;
             this.bot.ClientErrored += this.botErrorHandler;
             
 
@@ -161,8 +163,9 @@ namespace ZeroTwoBot
             //command setup
             var commandConfig = new CommandsNextConfiguration
             {
+                
                 //use prefix from config
-                StringPrefix = configjson.CommandPrefix,          
+                StringPrefixes = new[] { configjson.CommandPrefix },          
 
                 //enable mentioning the bot as a prefix
                 EnableMentionPrefix = true
@@ -175,18 +178,18 @@ namespace ZeroTwoBot
             this.Commands.CommandExecuted += this.commandsExecuted;
             this.Commands.CommandErrored += this.commandsError;
 
-            //math example converter
-            var mathopcvt = new MathConverter();
-            CommandsNextUtilities.RegisterConverter(mathopcvt);
-            CommandsNextUtilities.RegisterUserFriendlyTypeName<MathOperation>("operation");
-
             //register commands
-            this.Commands.RegisterCommands<zeroTwoCommandsGroupped>();
             this.Commands.RegisterCommands<zeroTwoCommandsUngroupped>();
-            this.Commands.RegisterCommands<zeroTwoCommandsInteractive>();
+            //this.Commands.RegisterCommands<zeroTwoCommandsInteractive>();
+            this.Commands.RegisterCommands<zeroTwoCommandsVoice>();
 
-            //set up help formater
-            this.Commands.SetHelpFormatter<SimpleHelpFormatter>();
+
+            var voiceConfig = new VoiceNextConfiguration
+            {
+                AudioFormat = AudioFormat.Default
+            };
+
+            this.Voice = this.bot.UseVoiceNext(voiceConfig);
 
             //connect and log in
             await this.bot.ConnectAsync();

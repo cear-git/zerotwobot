@@ -1,16 +1,19 @@
 ﻿using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.IO;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
 using DSharpPlus.Interactivity;
+using DSharpPlus.VoiceNext;
 
 namespace ZeroTwoBot
 {
-    public class zeroTwoCommandsUngroupped
+    public class zeroTwoCommandsUngroupped : BaseCommandModule
     {       
         [Command("ping")] // let's define this method as a command
         [Description("Example ping command")] // this will be displayed to tell users what this command does when they invoke help
@@ -24,6 +27,20 @@ namespace ZeroTwoBot
 
             // respond with ping
             await ctx.RespondAsync($"{emoji} Pong! Ping: {ctx.Client.Ping}ms");
+        }
+
+        [Command("close"), Description("closes bot")]
+        public async Task closeBot(CommandContext ctx)
+        {
+            var voiceNext = ctx.Client.GetVoiceNext();
+            var vnc = voiceNext.GetConnection(ctx.Guild);
+            if (vnc != null)
+            {
+                vnc.Disconnect();
+            }
+            await ctx.RespondAsync("Disconnecting");
+            await Program.instance.bot.DisconnectAsync();
+            Console.WriteLine("bot disconnected");
         }
 
         public static Dictionary<DiscordMember, int> winCount = new Dictionary<DiscordMember, int>();
@@ -105,115 +122,161 @@ namespace ZeroTwoBot
                         }
                         break;
                 }
-                return tie ? "Tie." : userWin ? "You win." : "You lose."; ; //return the string
+                return tie ? "Tie." : userWin ? "You win." : "You lose."; //return the string
             }
 
             string response = responseArray.Any(x => argOne.ToLower().Contains(x)) ? rpsHandler(argOne) : "Please use a correct arg (scissors, rock, or paper)";
             await ctx.RespondAsync(response);
         }
 
-        [Command("greet"), Description("Says hi to specified user."), Aliases("sayhi", "say_hi")]
-        public async Task Greet(CommandContext ctx, [Description("The user to say hi to.")] DiscordMember member) // this command takes a member as an argument; you can pass one by username, nickname, id, or mention
-        {
-            await ctx.TriggerTypingAsync();
-
-            var emoji = DiscordEmoji.FromName(ctx.Client, ":wave:");
-
-            //respond and greet the user.
-            await ctx.RespondAsync($"{emoji} Hello, {member.Mention}!");
-        }
-
-        [Command("sum"), Description("Sums all given numbers and returns said sum.")]
-        public async Task SumOfNumbers(CommandContext ctx, [Description("Integers to sum.")] params int[] args)
-        {
-            await ctx.TriggerTypingAsync();
-
-            // calculate the sum
-            var sum = args.Sum();
-
-            // and send it to the user
-            await ctx.RespondAsync($"The sum of these numbers is {sum.ToString("#,##0")}");
-        }
-
-        // math example command
-        [Command("math"), Description("Does basic math.")]
-        public async Task Math(CommandContext ctx, [Description("First operand.")] double num1, [Description("Operation to perform on the operands.")] MathOperation operation, [Description("Second operand.")] double num2)
-        {
-            var result = 0.0;
-            switch (operation)
-            {
-                case MathOperation.Add:
-                    result = num1 + num2;
-                    break;
-
-                case MathOperation.Subtract:
-                    result = num1 - num2;
-                    break;
-
-                case MathOperation.Multiply:
-                    result = num1 * num2;
-                    break;
-
-                case MathOperation.Divide:
-                    result = num1 / num2;
-                    break;
-
-                case MathOperation.Percent:
-                    result = num1 % num2;
-                    break;
-            }
-            
-            await ctx.RespondAsync($"The result is {result.ToString("#,##0.00")}");
-        }
     }
 
-    [Group("admin")] //mark this class as a command group
-    [Description("Administrative commands.")] // give it a description for help purposes
-    [Hidden] //hides this from users
-    [RequirePermissions(Permissions.ManageGuild)] //restrict this to users who have appropriate permissions
-    public class zeroTwoCommandsGroupped
+    public class zeroTwoCommandsVoice : BaseCommandModule
     {
-        // all the commands will need to be executed as <prefix>admin <command> <arguments>
-
-        // this command will be only executable by the bot's owner
-        [Command("sudo"), Description("Executes a command as another user."), Hidden, RequireOwner]
-        public async Task Sudo(CommandContext ctx, [Description("Member to execute as.")] DiscordMember member, [RemainingText, Description("Command text to execute.")] string command)
+        [Command("join"), Description("joins channel")]
+        public async Task Join(CommandContext ctx, DiscordChannel channel = null)
         {
-            await ctx.TriggerTypingAsync();
+            var voiceNext = ctx.Client.GetVoiceNext();
+            if (voiceNext == null)
+            {
+                await ctx.RespondAsync("Voice is not enabled for this bot.");
+                return;
+            }
+            var voiceConnection = voiceNext.GetConnection(ctx.Guild);
+            if (voiceConnection != null)
+            {
+                await ctx.RespondAsync("Already connected to a channel.");
+                return;
+            }
 
-            // get the command service
-            var cmds = ctx.CommandsNext;
+            var vstat = ctx.Member?.VoiceState;
+            if (vstat?.Channel == null && channel == null)
+            {
+                await ctx.RespondAsync("You are not in a voice channel.");
+                return;
+            }
 
-            // perform the sudo
-            await cmds.SudoAsync(member, ctx.Channel, command);
+            if (channel == null)
+                channel = vstat.Channel;
+
+            voiceConnection = await voiceNext.ConnectAsync(channel);
+            await ctx.RespondAsync($"Connected to `{channel.Name}");
         }
 
-        [Command("nick"), Description("Gives someone a new nickname."), RequirePermissions(Permissions.ManageNicknames)]
-        public async Task ChangeNickname(CommandContext ctx, [Description("Member to change the nickname for.")] DiscordMember member, [RemainingText, Description("The nickname to give to that user.")] string new_nickname)
+        [Command("leave"), Description("Leaves a voice channel.")]
+        public async Task Leave(CommandContext ctx)
         {
-            await ctx.TriggerTypingAsync();
+            // check whether VNext is enabled
+            var voiceNext = ctx.Client.GetVoiceNext();
+            if (voiceNext == null)
+            {
+                // not enabled
+                await ctx.RespondAsync("VNext is not enabled or configured.");
+                return;
+            }
 
+            // check whether we are connected
+            var voiceConnection = voiceNext.GetConnection(ctx.Guild);
+            if (voiceConnection == null)
+            {
+                // not connected
+                await ctx.RespondAsync("Not connected in this guild.");
+                return;
+            }
+
+            string channel = voiceConnection.Channel.Name;
+            // disconnect
+            voiceConnection.Disconnect();
+            await ctx.RespondAsync($"Disconnected from `{channel}`");
+        }
+
+        [Command("play"), Description("Plays an audio file.")]
+        public async Task Play(CommandContext ctx, [RemainingText, Description("Full path to the file to play.")] string filename)
+        {
+            // check whether VNext is enabled
+            var vnext = ctx.Client.GetVoiceNext();
+            if (vnext == null)
+            {
+                // not enabled
+                await ctx.RespondAsync("Voice is not enabled or configured.");
+                return;
+            }
+
+            // check whether we aren't already connected
+            var vnc = vnext.GetConnection(ctx.Guild);
+            if (vnc == null)
+            {
+                // already connected
+                await ctx.RespondAsync("I'm not connected to any channel.");
+                return;
+            }
+
+            // check if file exists
+            if (!File.Exists(filename))
+            {
+                // file does not exist
+                await ctx.RespondAsync($"File `{filename}` does not exist.");
+                return;
+            }
+
+            // wait for current playback to finish
+            while (vnc.IsPlaying)
+                await vnc.WaitForPlaybackFinishAsync();
+
+            // play
+            Exception exc = null;
+            await ctx.Message.RespondAsync($"Playing `{filename}`");
+            await vnc.SendSpeakingAsync(true);
             try
             {
-                // let's change the nickname, and tell the 
-                // audit logs who did it.
-                await member.ModifyAsync(new_nickname, reason: $"Changed by {ctx.User.Username} ({ctx.User.Id}).");
+                // borrowed from
+                // https://github.com/RogueException/Discord.Net/blob/5ade1e387bb8ea808a9d858328e2d3db23fe0663/docs/guides/voice/samples/audio_create_ffmpeg.cs
 
-                
-                var emoji = DiscordEmoji.FromName(ctx.Client, ":white_check_mark:");
-                await ctx.Message.CreateReactionAsync(emoji);
+                var ffmpeg_inf = new ProcessStartInfo
+                {
+                    FileName = "ffmpeg",
+                    Arguments = $"-i \"{filename}\" -ac 2 -f s16le -ar 48000 pipe:1",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+                var ffmpeg = Process.Start(ffmpeg_inf);
+                var ffout = ffmpeg.StandardOutput.BaseStream;
+
+                VoiceTransmitStream vStream = vnc.GetTransmitStream(20);
+                // let's buffer ffmpeg output
+                using (var ms = new MemoryStream())
+                {
+                    await ffout.CopyToAsync(ms);
+                    ms.Position = 0;
+
+                    var buff = new byte[3840]; // buffer to hold the PCM data
+                    var br = 0;
+                    while ((br = ms.Read(buff, 0, buff.Length)) > 0)
+                    {
+                        if (br < buff.Length) // it's possible we got less than expected, let's null the remaining part of the buffer
+                            for (var i = br; i < buff.Length; i++)
+                                buff[i] = 0;
+
+                        //await vnc.SendAsync(buff, 20); // we're sending 20ms of data
+                        await vStream.WriteAsync(buff);
+                    }
+                }
             }
-            catch (Exception)
+            catch (Exception ex) { exc = ex; }
+            finally
             {
-                // oh no, something failed, let the invoker now
-                var emoji = DiscordEmoji.FromName(ctx.Client, ":-1:");
-                await ctx.Message.CreateReactionAsync(emoji);
+                await vnc.SendSpeakingAsync(false);
             }
+
+            if (exc != null)
+                await ctx.RespondAsync($"An exception occured during playback: `{exc.GetType()}: {exc.Message}`");
         }
+
     }
 
-    //this is for interactive commands such as polls 
-    public class zeroTwoCommandsInteractive
+   /* //this is for interactive commands such as polls 
+    public class zeroTwoCommandsInteractive : BaseCommandModule
     {
         [Command("poll"), Description("Run a poll w/ reactions")]
         public async Task Poll(CommandContext ctx, [Description("How long will the poll last")] TimeSpan duration, [Description("What options should people have")] params DiscordEmoji[] options)
@@ -277,5 +340,5 @@ namespace ZeroTwoBot
                 await ctx.RespondAsync("No one wins");
             }
         }
-    }
+    }*/
 }
