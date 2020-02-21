@@ -160,7 +160,7 @@ namespace ZeroTwoBot
                 channel = vstat.Channel;
 
             voiceConnection = await voiceNext.ConnectAsync(channel);
-            await ctx.RespondAsync($"Connected to `{channel.Name}");
+            await ctx.RespondAsync($"Connected to `{channel.Name}`");
         }
 
         [Command("leave"), Description("Leaves a voice channel.")]
@@ -269,6 +269,11 @@ namespace ZeroTwoBot
                 await vnc.SendSpeakingAsync(false);
             }
 
+            while (vnc.IsPlaying)
+            {
+                await vnc.WaitForPlaybackFinishAsync();
+                vnc.Disconnect();
+            }
             if (exc != null)
                 await ctx.RespondAsync($"An exception occured during playback: `{exc.GetType()}: {exc.Message}`");
         }

@@ -117,16 +117,17 @@ namespace ZeroTwoBot
         
         }       
         
-       /* public async Task botStatusAsync(ReadyEventArgs e)
+        public async Task botStatusAsync(ReadyEventArgs e)
         {
             string[] statusArray = { "test", "test2", "test3" };
             Random rand = new Random();
-                
-            DiscordGame game = new DiscordGame();    
-            game.Name = statusArray[rand.Next(0, 2)];
-            game.StreamType = GameStreamType.Twitch;
-            await this.bot.UpdateStatusAsync(game, UserStatus.Online);
-        }*/
+
+            DiscordActivity active = new DiscordActivity();
+            active.ActivityType = ActivityType.Streaming;
+            active.Name = statusArray[rand.Next(0, 2)];
+            active.StreamUrl = "https://twitch.tv/ceariusx";
+            await this.bot.UpdateStatusAsync(active);
+        }
 
         //main async task
         public async Task startBotAsync()
@@ -154,7 +155,7 @@ namespace ZeroTwoBot
           
             //hook events to the bot
             this.bot.Ready += this.botReady;
-            //this.bot.Ready += this.botStatusAsync;
+            this.bot.Ready += this.botStatusAsync;
             this.bot.GuildAvailable += this.botGuildAvailable;
             this.bot.ClientErrored += this.botErrorHandler;
             
